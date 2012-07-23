@@ -1,3 +1,6 @@
+http://OpenSigtran.org
+
+
 Intro
 
 This software originated from my ancient SS7 implementation, developed on the eve of Millennium. Form the very beginning the idea was to make it embedded.
@@ -55,4 +58,5 @@ Card is 122*101 mm and can be ether plugged into any PCI slot or powered from 5V
 
 
 dmitri.soloviev@telestax.com
-http://opensigtran.org://telestax.com)
+http://opensigtran.org
+http://telestax.com
