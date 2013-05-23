@@ -1,10 +1,3 @@
-/* Written by Dmitri Soloviev <dmi3sol@gmail.com>
-  
-  http://opensigtran.org
-  http://telestax.com
-  
-  GPL version 3 or later
-*/
 #define SLTM    0x11
 #define SLTA    0x21
 
@@ -25,5 +18,6 @@
 #define L2ISUP	0x05000000
 #define L2SCCP	0x03000000
 
+//#define testpattern "dmisol@mail.ru  "
 #define testpattern     "OpenSigtran.org "
 #define testpattern1    "opensigtran.org "

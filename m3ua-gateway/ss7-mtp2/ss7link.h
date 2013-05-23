@@ -1,32 +1,25 @@
-/* Written by Dmitri Soloviev <dmi3sol@gmail.com>
-  
-  http://opensigtran.org
-  http://telestax.com
-  
-  GPL version 3 or later
-*/
 #include "../defs.h"
 
 struct SS7LINKSTARTUP
 {
-    PROCDATA *procdata;
-    int key;
-    int linkset;	// own linkset number
-    int link;		// own link number (inside linkset)
-    int mtp;		// mtp address
+	PROCDATA *procdata;
+	int key;
+	int link;		// own link number (inside linkset)
+	int mtp;		// mtp address
+
+	unsigned *pcap_ip;
+	unsigned short *pcap_port;
 };
 
-class SS7LINK : public SS7PROC
+class SS7LINK// : public SS7PROC
 {
   public:
 	int state;		// 0 - OK
 	int debug;
-	int linkset;
 	int link;
-//	int start(void *param);
-//	int event(void *param);
-//	int stop(void *param);        
+	
 	virtual int start(void *param);
+	virtual void timer();
 	virtual int event(void *param);
 	virtual int stop(void *param);
   private:
@@ -49,28 +42,31 @@ class SS7LINK : public SS7PROC
 	       }body;
 	} lssu;
 
-	union{
-	  WORD RXfsnbsn;
-	  char tx_last_ackd;
-	  };
-
-        BYTE last_txd,tx_last_placed;
+	char tx_last_ackd;
+	
+	BYTE last_txd,tx_last_placed;
 	BYTE rx_ack_request;	
 
 //	TIMER *txtimer;	// array of MSU ack timers
 	SS7MESSAGE **txbuffer;	// array of references to messages
 
-        int init(int key);
+	int init(int key);
 	int tx_msg(void * buf);
 	int rx_msg(void * buf);
 	void check_e1();
 	void status(void);
-	void alignment_lssu(WORD word);
+	//void alignment_lssu(WORD word);
+	void alignment_lssu(int len, void * buf);
 	void alignment_timer(void);
-        
-        int rxpos,txpos;
-        unsigned short *txSu;
-        unsigned short *rxSu;
+	
+	int rxpos,txpos;
+	unsigned short *txSu;
+	unsigned short *rxSu;
 
 	WORD errorlevel;	// DSP errorlevel
+
+	int sock_rx, sock_tx;
+	unsigned *pcap_ip;
+	unsigned short *pcap_port;
+	void pcap(SS7MESSAGE* su);
 };

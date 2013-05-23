@@ -1,10 +1,3 @@
-/* Written by Dmitri Soloviev <dmi3sol@gmail.com>
-  
-  http://opensigtran.org
-  http://telestax.com
-  
-  GPL version 3 or later
-*/
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -46,30 +39,30 @@ int SS7LINK::init(int key){
         return 1;
     }
     shm = (u16 *) shmat(shm_id,0,0);
-        
+
     rxSu = shm;
     txSu = shm + maxSUnumber*(maxSUlen>>1);
-           
+
     u16* w;
-        
+
     r = shm[(maxSUlen>>1)*maxSUnumber*2];
     t = shm[(maxSUlen>>1)*maxSUnumber*2 +1];
 
-    log("r is",1,(char *)&r);
-    log("t is",1,(char *)&t);
-    
+//    log("r is",1,(char *)&r);
+//    log("t is",1,(char *)&t);
+
     rxpos = (r - 1)&RXmask;
-    log("RXfrom",1,(char*)&rxpos);
+//    log("RXfrom",1,(char*)&rxpos);
     while((rxSu[((rxpos)&RXmask)*(maxSUlen>>1)]&0xF000)==0){
-	log("Rxfilled",1,(char*)&rxpos);
+//	log("Rxfilled",1,(char*)&rxpos);
 	rxpos += (maxSUnumber - 1);
 	rxpos &= RXmask;
     }
     rxpos ++; rxpos &= RXmask;
     
     txpos = (t + 1)&TXmask;
-    log("RX pos",1,(char *)&rxpos);
-    log("TX pos",1,(char *)&txpos);
+//    log("RX pos",1,(char *)&rxpos);
+//    log("TX pos",1,(char *)&txpos);
     return 0;
 }
 
@@ -93,9 +86,9 @@ int SS7LINK::rx_msg(void *buf)
    ss7->len = len;
 
    memcpy(ss7->body.board.byte,rxSu + rxpos*(maxSUlen>>1) +1 ,len);
-   RXfsnbsn = ss7->body.board.word[0];
-//   log("RX ",ss7->len,&(ss7->body.board.byte[0]));
-   rf5su(log_rx_link,ss7->len,&(ss7->body.board.byte[0]));
+   if(*pcap_port) rf5su(sock_rx, *pcap_ip, *pcap_port, ss7->len,&(ss7->body.board.byte[0]));
+   
+   tx_last_ackd = ss7->body.su.mtp2.bitfield.bsn;
 
    rxSu[rxpos*(maxSUlen>>1)] = 0xC000;
    nextRXsu;
@@ -114,7 +107,7 @@ int SS7LINK::tx_msg(void *buf)
    p = len+1;
 
    if (((*len)&0xF000)==0)// not TX'd already
-     { log("failed TX pos",1,(char *)&txpos);
+     { //log("failed TX pos",1,(char *)&txpos);
        return 0;
      }
 	
@@ -128,8 +121,7 @@ int SS7LINK::tx_msg(void *buf)
    *len = ss7->len;
    nextTXsu;
 
-//   log("TX ",ss7->len,&(ss7->body.board.byte[0]));
-   rf5su(log_tx_link,ss7->len,&(ss7->body.board.byte[0]));
+   if(*pcap_port) rf5su(sock_tx, *pcap_ip, *pcap_port, ss7->len,&(ss7->body.board.byte[0]));
  
    return ss7->len;
   }

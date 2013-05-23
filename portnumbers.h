@@ -1,0 +1,13 @@
+//#define DEFAULT_SCTP_PORT       3434
+
+#define MGCP_GW_PORT		2427
+
+#define DEFAULT_M2UA_PORT       2904
+#define DEFAULT_M3UA_PORT       2905
+
+#define PCAP_TARGET_PORT	5729
+
+#define FIRST_RTP_PORT		4000
+
+#define FIRTS_OWN_PCAP_PORT	10000
+

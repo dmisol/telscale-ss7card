@@ -1,13 +1,6 @@
-/* Written by Dmitri Soloviev <dmi3sol@gmail.com>
-  
-  http://opensigtran.org
-  http://telestax.com
-  
-  GPL version 3 or later
-*/
 #define VERSION "simple tcp server v 2.00"
-#define CLQTY 5
-
+#define CLQTY 3
+#define MAX_MSG_PER_TICK	60
 #include "../defs.h"
 #include "tcpserver.h"
 
@@ -31,30 +24,35 @@ void TCPSERVER::count_connections(char *str)
   for(i=0;i<clqty;i++)
     if(cl[i]!=0xFFFF) j++;
   if(debug&&ALL_EVENTS) log(str,1,(char *)&j);
-
+/*
+  if(state){	 if(j==0) post(m3ua, SS7_SCTPPAUSE,0);}
+  else		 if(j) post(m3ua, SS7_SCTPRESUME,0);
+*/
   state = j;
 }
+
+void TCPSERVER::timer(){
+  unsigned cntr = 0;
+  SS7MESSAGE *ptr;
+  
+  while((ptr=(SS7MESSAGE *)serv_recv())!=0){
+    post(m3ua,   SS7_M3UATRANSFER,(void *)ptr);
+
+    if(cntr++ > MAX_MSG_PER_TICK) return;
+  }
+}
+
 
 int TCPSERVER::event(void *param)
 {
   MSGDATA *p;
-  int i,j;
-  SS7MESSAGE *ptr;
 
   p=(MSGDATA *)param;
 
-  switch(p->msg){
-      case SS7_TIMER:
-//	if(debug&&DEBUG_EVENTS)log("timer",0,0);
-	  while((ptr=(SS7MESSAGE *)serv_recv())!=0){
-	    post(m3ua,   SS7_M3UATRANSFER,(void *)ptr);
-	  }
-        return 0;
-      default:
-	serv_send((unsigned *)p->param);
-	return 0;
-  }
+  serv_send((unsigned *)p->param);
+  return 0;
 }
+
 
 int TCPSERVER::start(void *param)
 {
@@ -151,8 +149,8 @@ void* TCPSERVER::serv_recv()
           j = recv(cl[i],&(buf[1]),8,0);
           if(j==8){
               buf[0] = ntohl(buf[2]);
-              if(buf[0]>292) {
-                  log("length is",4,(char*)&(buf[0]));
+              if(buf[0]>(SS7MsgSize-10)) {
+                  log("first u32 is",4,(char*)&buf[2]);
                   close(cl[i]);cl[i]=0xffff;
 		  count_connections("msg is too long, active");
               }
@@ -167,8 +165,8 @@ void* TCPSERVER::serv_recv()
 		  count_connections("read failed, active");
     		} 
           }
-	  else {  log("expected 8, read:",4,(char*)&j);
-		  log("errno",4,(char*)&errno);
+          else {  //log("returned:",4,(char*)&j);
+		  //log("errno",4,(char*)&errno);
 	          if( (errno == EINTR)&&(j<0) ) { return 0; }
 		  close(cl[i]);cl[i]=0xffff;
 		  count_connections("read failed, active");
@@ -181,33 +179,61 @@ void* TCPSERVER::serv_recv()
   return 0;
 }
 
-
 int  TCPSERVER::serv_send(unsigned *buf)
 {
  unsigned res;
  int j,sock,tr;
-
-// log("TX",buf[0],(char *)&(buf[1]));
-
+ 
  for(res=j=0;j<clqty;j++)
  { sock=cl[j];
    if(sock!=0xFFFF)
-   { tr=send(sock,(&(buf[1])),buf[0],0);
-         if( tr<0 )
-            { if( (errno == EINTR)&&(tr<0) ) {log(" tx intr",0,0); continue;}
-	      close(cl[j]);
-	      cl[j] = 0xFFFF;
-	      count_connections("write failed, active");
-              goto next_socket_tx;
-            }
-	 else if(tr != buf[0]) log("sent only",4,(char *)buf);
-//	 else log("TX",tr,(char *)(&buf[1]));
-     res++;
+   {    
+
+	int attempt = 0;
+	int remained = buf[0];
+	char *data; data = (char*)&(buf[1]);
+	do{
+		// should be replaced with sctp-specific
+	    tr = send(sock,data,remained,0);
+	    if(tr<0){
+		if(errno == EINTR) { log("TX intr",0,0); attempt++; }
+		else if(errno == EAGAIN) { log("TX again",2,(char*)&remained); attempt++; }
+		else attempt = 100;
+
+		if(attempt>5){
+			log("TX error ",1,(char *)&errno); 
+			close(cl[j]);
+			cl[j] = 0xFFFF;
+			count_connections("write failed, active");
+			goto next_socket_tx; 
+		}
+
+		SS7MESSAGE *ptr;
+		unsigned rxcounter = 0;
+		while(((ptr=(SS7MESSAGE *)serv_recv())!=0)&&((rxcounter++)<MAX_MSG_PER_TICK/4))
+		    post(m3ua,   SS7_M3UATRANSFER,(void *)ptr);
+
+		usleep(TimerTick*1000L);
+	    }
+	    else if(tr!=remained) {
+		log("TX incomplete",0,0);
+		data += tr;
+		remained -= tr;
+		tr = 0;
+	    }
+	}while(tr != remained);
+         res++;
    }
    next_socket_tx: ;
  }
+// log("sock tx done",0,0);
  return res;
 }
+
+
+
+
+
 
 
 int  TCPSERVER::init_sctp_serv()
@@ -236,14 +262,7 @@ int  TCPSERVER::init_sctp_serv()
   { log("server bind failed",0,0); 
 
      close(req_sock); return 0;}
-/*
-  memset( &initmsg, 0, sizeof(initmsg) );
-  initmsg.sinit_num_ostreams = SCTP_STREAMS_QTY;
-  initmsg.sinit_max_instreams = SCTP_STREAMS_QTY;
-  initmsg.sinit_max_attempts = 4;
-  ret = setsockopt( req_sock, IPPROTO_SCTP, SCTP_INITMSG, 
-                     &initmsg, sizeof(initmsg) );
-*/
+
   if(listen(req_sock,3) < 0 )
   { log("server listen failed",0,0);close(req_sock); return 0;}
 

@@ -1,10 +1,3 @@
-/* Written by Dmitri Soloviev <dmi3sol@gmail.com>
-  
-  http://opensigtran.org
-  http://telestax.com
-  
-  GPL version 3 or later
-*/
 #include "../defs.h"
 #include "sigtran.h"
 
@@ -17,24 +10,25 @@ struct SS7MTPM3UASTARTUP
 	int link_last;
 
 	int sctp;
+	int first_sls;
 
 	int l2;					// netw. ind.
 	//unsigned int rxlabel;	// 0 if undefined
 };
 
-class SS7MTPM3UA : public SS7PROC
+class SS7MTPM3UA// : public SS7PROC
 {
 	public:
 	// to emulate old MTP interface
 	int state;		// 0 - OK
 	int debug;
-//	int start(void *param);
-//	int event(void *param);
-//	int stop(void *param);
+	
 	virtual int start(void *param);
+	virtual void timer();
 	virtual int event(void *param);
 	virtual int stop(void *param);
-	void links_display(void *param);
+	
+//	void links_display(void *param);
 	
 	private:
 
@@ -44,6 +38,8 @@ class SS7MTPM3UA : public SS7PROC
 	int linkqty;
 	int link[maxLinkQty];
 	int linkstatus[maxLinkQty];
+	
+	int first_sls;
 
 	unsigned int rxlabel[maxLinkQty],txlabel[maxLinkQty];
 	unsigned int l2;

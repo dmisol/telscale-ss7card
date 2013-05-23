@@ -1,13 +1,6 @@
-/* Written by Dmitri Soloviev <dmi3sol@gmail.com>
-  
-  http://opensigtran.org
-  http://telestax.com
-  
-  GPL version 3 or later
-*/
-
-#define VERSION "simple sctp server v 2.00"
-#define CLQTY 5
+#define VERSION "simple sctp server v 3.00"
+#define CLQTY 2
+#define MAX_MSG_PER_TICK	70
 
 #include "../defs.h"
 #include "sctpserver.h"
@@ -15,9 +8,11 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
 #include <netinet/in.h>
 //#include <netinet/sctp.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
@@ -31,35 +26,34 @@ void SCTPSERVER::count_connections(char *str)
   for(i=0;i<clqty;i++)
     if(cl[i]!=0xFFFF) j++;
   if(debug&&ALL_EVENTS) log(str,1,(char *)&j);
-
   state = j;
 }
 
-int SCTPSERVER::event(void *param)
-{
-  MSGDATA *p;
-  int i,j;
+void SCTPSERVER::timer(){
   SS7MESSAGE *ptr;
 
-  p=(MSGDATA *)param;
+  while(do_send()) ;
+  int cntr = 0;
 
-  switch(p->msg){
-	case SS7_TIMER:
-		while((ptr=(SS7MESSAGE *)serv_recv())!=0){
-		    post(m3ua,   SS7_M3UATRANSFER,(void *)ptr);
-		}
-		return 0;
-
-	case SS7_M3UATRANSFER:
-		serv_send((unsigned *)p->param, p->param2);
-		return 0;
-
-	default: return 1;
+  while((ptr=(SS7MESSAGE *)serv_recv())!=0){
+    post(m3ua,   SS7_M3UATRANSFER,(void *)ptr);
+    if(cntr++ > MAX_MSG_PER_TICK) return;
   }
 }
 
-int SCTPSERVER::start(void *param)
-{
+
+int SCTPSERVER::event(void *param){
+  MSGDATA *p;
+  p=(MSGDATA *)param;
+
+  serv_send(p->param, p->stream);
+  while(do_send()) ;
+  return 0;
+}
+
+
+int SCTPSERVER::start(void *param){
+
 	SCTPSERVERSTARTUP *ptr;
 	
 	ptr=(SCTPSERVERSTARTUP *)param;
@@ -73,8 +67,14 @@ int SCTPSERVER::start(void *param)
 	cl = (int *)malloc(clqty*sizeof(int));
 	for(int i=0;i<clqty;i++) cl[i] = 0xFFFF;
 	ip = (long *)malloc(clqty*sizeof(long));
-        
-        memset(&sinfo, 0, sizeof(sinfo));
+
+	memset(&sinfo, 0, sizeof(sinfo));
+
+	txbuffer = (void **) malloc( SCTP_FIFO_SIZE *sizeof(void *) );
+	streamid = (int*) malloc( SCTP_FIFO_SIZE *sizeof(int) );
+	put_ptr = get_ptr = 0;
+	client_id_to_start_with = 0;
+//	top_fifo_load = 0;
 
 	if(init_sctp_serv())
 	{	log(VERSION,0,0);
@@ -94,6 +94,7 @@ int SCTPSERVER::stop(void *param)
     close(req_sock);
 	return 0;
 }
+
 
 void* SCTPSERVER::serv_recv()
 {
@@ -132,15 +133,21 @@ void* SCTPSERVER::serv_recv()
      { cl[j] = 0xFFFF;
        count_connections("accept failed, active");
        return 0;}
-       
+
      int value = 1;
+
      if(setsockopt(cl[j],SOL_SCTP,SCTP_NODELAY,&value,sizeof(value))!=0)
      { close(cl[j]);
        cl[j] = 0xFFFF;
        count_connections("setting SCTP_NODELAY failed, active");
        return 0;}
+
      
-     count_connections("accepted, active");
+      value = 1; 
+      // Makes the socket non-blocking
+      ioctl(cl[j], FIONBIO , &value );
+
+      count_connections("accepted, active");
      }
 
 
@@ -154,13 +161,14 @@ void* SCTPSERVER::serv_recv()
           j = recv(cl[i],&(buf[1]),8,0);
           if(j==8){
               buf[0] = ntohl(buf[2]);
-              if(buf[0]>292) {
-                  log("length is",4,(char*)&(buf[0]));
+              if(buf[0]>(SS7MsgSize-10)) {
+                  log("first u32 is",4,(char*)&buf[2]);
                   close(cl[i]);cl[i]=0xffff;
 		  count_connections("msg is too long, active");
               }
               if( (j=recv(cl[i],&(buf[3]),(buf[0]-8),0)) > 0 ){ 
-                  
+                
+		  if(j!=(buf[0]-8)) log("RX incomplete packet",0,0);
                   //if(debug&&ALL_TRAFFIC)log("RX",buf[0],(char*)&(buf[1]));
                   return buf;}
               else {  //log("returned:",4,(char*)&j);
@@ -170,53 +178,110 @@ void* SCTPSERVER::serv_recv()
 		  count_connections("read failed, active");
     		} 
           }
-	  else {  log("expected 8, read:",4,(char*)&j);
-		  log("errno",4,(char*)&errno);
+	  else {  log("SCTP recv() returned:",4,(char*)&j);
+		  log("SCTP errno",4,(char*)&errno);
 	          if( (errno == EINTR)&&(j<0) ) { return 0; }
 		  close(cl[i]);cl[i]=0xffff;
 		  count_connections("read failed, active");
-    		}
-          return 0;
-
-	    }
+    		} return 0;
+	}
      }
 
   return 0;
 }
 
-int  SCTPSERVER::serv_send(unsigned *buf, int stream)
+int  SCTPSERVER::serv_send(void *buf, int stream){
+	int i;
+	
+//	log("placing to queue",2,(char*)&put_ptr);
+//	log("pos to read is",2,(char*)&get_ptr);
+
+	streamid[put_ptr] = stream;
+	txbuffer[put_ptr] = buf;
+	put_ptr = (put_ptr+1)%SCTP_FIFO_SIZE;
+
+//	log("placing for next is",2,(char*)&put_ptr);
+
+	if (put_ptr == get_ptr) {
+	    log("FIFO is full",0,0);
+	    for(i=0;i<CLQTY;i++)
+		if(cl[i]!=0xFFFF){
+		    close(cl[i]);
+		    cl[i] = 0xFFFF;
+		    count_connections("TX buffer underrun");
+		}
+//	    log("+++",0,0);
+	    return 0;
+	}
+//	log("+++",0,0);
+	return 1;
+}
+
+int  SCTPSERVER::do_send()
 {
+
+// log("trying to tx",2,(char*)&get_ptr);
+// log("tx till",2,(char*)&put_ptr);
+
+ if(put_ptr == get_ptr) {
+//    log("nothing 2 tx",0,0);
+    return 0;
+ }
+    
  unsigned res;
  int j,sock,tr;
 
- sinfo.sinfo_stream = stream;
- 
-// log("TX",buf[0],(char *)&(buf[1]));
 
- for(res=j=0;j<clqty;j++)
+ sinfo.sinfo_stream = streamid[get_ptr];
+
+ unsigned *buf = (unsigned *)txbuffer[get_ptr];
+ if(client_id_to_start_with>=CLQTY)  client_id_to_start_with = 0;
+ 
+ for(res=0,j=client_id_to_start_with;j<clqty;j++)
  { sock=cl[j];
    if(sock!=0xFFFF)
    {    
-       // to update when blackfin tools ready:
-       // in RFC6458: SCTP_DEFAULT_SNDINFO
-       // now it's too fresh
-       tr = setsockopt(sock, IPPROTO_SCTP, SCTP_DEFAULT_SEND_PARAM, &sinfo, sizeof(sinfo));
-       if(tr<0) log("stream setting failed",2,(char *)&tr);
+	// to update when blackfin tools ready:
+	// in RFC6458: SCTP_DEFAULT_SNDINFO
+	// now it's too fresh
+	tr = setsockopt(sock, IPPROTO_SCTP, SCTP_DEFAULT_SEND_PARAM, &sinfo, sizeof(sinfo));
 
-       tr = send(sock,(&(buf[1])),buf[0],0);      // should be replaced with sctp-specific
-         if( tr<0 )
-            { if( (errno == EINTR)&&(tr<0) ) {log(" tx intr",0,0); continue;}
-	      close(cl[j]);
-	      cl[j] = 0xFFFF;
-	      count_connections("write failed, active");
-              goto next_socket_tx;
-            }
-	 else if(tr != buf[0]) log("sent only",4,(char *)buf);
-//	 else log("TX",tr,(char *)(&buf[1]));
-         res++;
+	int remained = buf[0];
+	char *data; data = (char*)&(buf[1]);
+	
+	// should be replaced with sctp-specific
+	    tr = send(sock,data,remained,0);
+	    if(tr<0){
+		if(errno == EINTR) { 
+			log("TX intr",0,0); 
+			client_id_to_start_with = j; return 0; }
+		else if(errno == EAGAIN) { 
+			//log("TX again",2,(char*)&remained); 
+/*
+			int fifo;
+			    if(put_ptr > get_ptr) fifo = put_ptr-get_ptr;
+			    else fifo = put_ptr+(SCTP_FIFO_SIZE)-get_ptr;
+			if(fifo > top_fifo_load) {
+			    top_fifo_load = fifo;
+			    log("top fifo size is",2,(char*)&fifo);
+			}
+*/
+			client_id_to_start_with = j; return 0;}
+		else {
+			log("TX error ",1,(char *)&errno); 
+			close(cl[j]);
+			cl[j] = 0xFFFF;
+			count_connections("write failed, active");
+			goto next_socket_tx; 
+		}
+	    }
+        res++;
    }
    next_socket_tx: ;
  }
+ client_id_to_start_with = 0; get_ptr = (get_ptr+1)%SCTP_FIFO_SIZE;
+// log("next tx is",2,(char*)&get_ptr);
+// log("---",0,0);
  return res;
 }
 

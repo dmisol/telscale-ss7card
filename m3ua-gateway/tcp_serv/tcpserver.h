@@ -1,10 +1,3 @@
-/* Written by Dmitri Soloviev <dmi3sol@gmail.com>
-  
-  http://opensigtran.org
-  http://telestax.com
-  
-  GPL version 3 or later
-*/
 #include "../defs.h"
 
 struct TCPSERVERSTARTUP
@@ -15,15 +8,14 @@ struct TCPSERVERSTARTUP
 	int port;
 };
 
-class TCPSERVER : public SS7PROC
+class TCPSERVER// : public SS7PROC
 {
   public:
 	int state;		// 0 - OK
 	int debug;
-//	int start(void *param);
-//	int event(void *param);
-//	int stop(void *param);
+
 	virtual int start(void *param);
+	virtual void timer();
 	virtual int event(void *param);
 	virtual int stop(void *param);
   private:
