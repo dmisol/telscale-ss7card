@@ -1,0 +1,77 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<!DOCTYPE composition PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<ui:composition template="./sgwTemplate.xhtml"
+	xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:ui="http://java.sun.com/jsf/facelets"
+	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:f="http://java.sun.com/jsf/core">
+
+	<ui:define name="top">
+		G.704 layout
+		<table>
+		<ui:repeat value="#{Configuration.pcmDataModel()}" var="pcm">
+		<tr>
+			<ui:repeat value="#{pcm.tsDataModel()}" var="ts" >
+			<td><h:form>
+				<h:commandButton title="#{ts.title}" disabled="#{ts.isLocked()}" type="submit" action="#{ts.toggleStatus()}" class="#{ts.sgwColor()}" value="#{ts.buttonSignature()}"/>
+				</h:form>
+			</td>
+			</ui:repeat>
+		</tr>
+		</ui:repeat>
+		</table>
+	</ui:define>
+
+	<ui:define name="content">
+		Signaling Gateways
+		<h:form>
+			<h:dataTable value="#{Configuration.gatewaysDataModel()}" var="sgw">
+
+			    <h:column>
+				<f:facet name="header" class="gateways #{sgw.color}">Type</f:facet>
+				<h:outputText class="gateways #{sgw.color}" value="#{sgw.name}"/>
+			    </h:column>
+			    <h:column>
+				<f:facet name="header" class="gateways">transport</f:facet>
+				<h:inputText class="gateways" size="5" value="#{sgw.transport}"/>
+			    </h:column>
+			    <h:column>
+				<f:facet name="header" class="gateways">port<br/>number</f:facet>
+				<h:inputText class="gateways" size="5" value="#{sgw.port}"/>
+			    </h:column>
+
+			    <h:column>
+				<f:facet name="header" class="gateways">SPC<br/>jSS7</f:facet>
+				<h:inputText class="gateways" size="5" value="#{sgw.opc}"/>
+			    </h:column>
+			    <h:column>
+				<f:facet name="header" class="gateways">SPC<br/>core</f:facet>
+				<h:inputText class="gateways" size="5" value="#{sgw.dpc}"/>
+			    </h:column>
+			    <h:column>
+				<f:facet name="header" class="gateways">NI</f:facet>
+				<h:inputText class="gateways" size="2" value="#{sgw.ni}"/>
+			    </h:column>
+			    <h:column>
+				<f:facet name="header" class="gateways">№ of <br/>Links</f:facet>
+				<h:outputText size="2" class="#{sgw.linksNumerStyle()}" value="#{sgw.linkSetSize}"/>
+			    </h:column>
+			    <h:column>
+				<f:facet name="header" class="gateways">№ of <br/>Comments</f:facet>
+				<h:outputText size="10" class="#{sgw.verifyStyle()}" value="#{sgw.verify()}"/>
+			    </h:column>
+			</h:dataTable>
+		
+			<h:commandButton style=" width: 100px" type="submit" value="Apply" action="#{Configuration.applySgwButtonAction()}"/>
+			<h:commandButton style=" width: 100px" disabled="#{Configuration.addSgwButtonDisabled()}" type="submit" value="Add" action="#{Configuration.addSgwButtonAction()}"/>
+			<h:commandButton style=" width: 100px" disabled="#{Configuration.removeSgwButtonDisabled()}" type="submit" value="Remove" action="#{Configuration.removeSgwButtonAction()}"/>
+			<h:commandButton style=" width: 100px" disabled="#{Configuration.fileSgwButtonDisabled()}" type="submit" value="Create files" action="#{Configuration.fileSgwButtonAction()}"/>
+		</h:form>
+			
+	</ui:define>
+
+	<ui:define name="bottom">
+	    <h:outputText escape="false" class="help" value="#{msg.createSgwHelp}"/>
+	</ui:define>
+		
+</ui:composition>

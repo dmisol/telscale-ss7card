@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pageflow:Pageflow xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pageflow="http://www.sybase.com/suade/pageflow" id="pf13603629154030" configfile="/TelscaleCardConfiguration/WebContent/WEB-INF/faces-config.xml">
+  <nodes xsi:type="pageflow:PFPage" name="newSgw.xhtml" x="122" y="178" id="pf13603630474361" referenceLink="//@navigationRule.0/@fromViewId|" outlinks="pf13603630474362 pf13603641496890" inlinks="pf13603630474362 pf13603636401325" path="/newSgw.xhtml"/>
+  <nodes xsi:type="pageflow:PFPage" name="saveFiles.xhtml" id="pf13603636401337" referenceLink="//@navigationRule.0/@navigationCase.1/@toViewId|" outlinks="pf13603636401325" inlinks="pf13603641496890" path="/saveFiles.xhtml"/>
+  <links id="pf13603630474362" target="pf13603630474361" source="pf13603630474361" outcome="newSgw">
+    <bendPoints d1Height="-36" d2Height="-36"/>
+    <bendPoints d1Width="-64" d1Height="-36" d2Width="-64" d2Height="-36"/>
+    <bendPoints d1Width="-64" d2Width="-64"/>
+  </links>
+  <links id="pf13603636401325" target="pf13603630474361" source="pf13603636401337" outcome="newSgw"/>
+  <links id="pf13603641496890" target="pf13603636401337" source="pf13603630474361" outcome="saveFiles"/>
+</pageflow:Pageflow>

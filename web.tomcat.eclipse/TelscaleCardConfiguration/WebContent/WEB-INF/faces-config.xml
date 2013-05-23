@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<faces-config
+    xmlns="http://java.sun.com/xml/ns/javaee"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-facesconfig_2_1.xsd"
+    version="2.1">
+
+   <application>
+	  <resource-bundle>
+		<base-name>messages</base-name>
+		<var>msg</var>
+	   </resource-bundle>
+   </application>
+
+
+  <managed-bean>
+    <managed-bean-name>Configuration</managed-bean-name>
+    <managed-bean-class>session.Configuration</managed-bean-class>
+    <managed-bean-scope>session</managed-bean-scope>
+  </managed-bean>
+
+  <navigation-rule>
+	<from-view-id>/newSgw.xhtml</from-view-id>
+	<navigation-case>
+		<from-outcome>newSgw</from-outcome>
+			<to-view-id>/newSgw.xhtml</to-view-id>
+	</navigation-case>
+	<navigation-case>
+		<from-outcome>saveFiles</from-outcome>
+			<to-view-id>/saveFiles.xhtml</to-view-id>
+	</navigation-case>
+	</navigation-rule>
+	
+  <navigation-rule>
+	<from-view-id>/saveFiles.xhtml</from-view-id>
+	<navigation-case>
+		<from-outcome>newSgw</from-outcome>
+			<to-view-id>/newSgw.xhtml</to-view-id>
+	</navigation-case>
+  </navigation-rule>
+
+</faces-config>

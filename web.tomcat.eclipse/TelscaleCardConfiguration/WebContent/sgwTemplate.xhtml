@@ -1,0 +1,51 @@
+<?xml version='1.0' encoding='UTF-8' ?> 
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+	  xmlns:ui="http://java.sun.com/jsf/facelets"
+	  xmlns:h="http://java.sun.com/jsf/html"
+	  xmlns:f="http://java.sun.com/jsf/core">
+
+	<h:head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+		<link href="./resources/css/default.css" rel="stylesheet" type="text/css" />
+		<link href="./resources/css/cssLayout.css" rel="stylesheet" type="text/css" />
+		<f:loadBundle basename="messages" var="msgs" />
+		<title>Telscale SS7 Card Configuration</title>
+<style>
+		tr{ border: 3px; background-color: lightgrey; }
+		table{ border:1px solid #ccc}
+		.gateways{ font-size: 16px; text-align: right}
+		.help{ font-style: italic; color: blue}
+		.error{ font-size: 16px; color: red }
+		.sgw0{ background-color: aqua}
+		.sgw1{ background-color: lawngreen}
+		.sgw2{ background-color: lightseagreen}
+		.sgw3{ background-color: orange}
+</style>
+	</h:head>
+
+	<h:body>
+			<img src="TeleStax.png"/>
+
+		<div id="top" class="top">
+		    <ui:insert name="top"></ui:insert>
+		</div>
+	
+		<div id="content" class="center_content">
+			
+			<ui:insert name="content">Content</ui:insert>
+		
+			<br/>
+		
+			<h:outputText class="error" value="#{Configuration.errorMessage}"/>
+		
+			<br/>
+			
+			<ui:insert name="bottom">Help</ui:insert>
+		</div>
+	
+		
+
+	</h:body>
+
+</html>
